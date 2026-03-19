@@ -1,0 +1,68 @@
+# CS Sales Fulfillment Service - for local Minikube
+# Build: from repo root: docker build -t fulfillment-service:latest -f M-eFulfillment/Dockerfile M-eFulfillment
+# Load: minikube image load fulfillment-service:latest
+# Deploy: kubectl apply -f M-eFulfillment/k8s/fulfillment-service.yaml
+# Requires: postgres (see M-eCatalog/k8s/postgres.yaml and README)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fulfillment-service
+  namespace: cs-sales
+  labels:
+    app: fulfillment-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fulfillment-service
+  template:
+    metadata:
+      labels:
+        app: fulfillment-service
+    spec:
+      containers:
+        - name: fulfillment-service
+          image: fulfillment-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9083
+          env:
+            - name: DB_URL
+              value: "jdbc:postgresql://postgres:5432/cs-sales-order-fulfillment"
+            - name: DB_USERNAME
+              value: cs_sales_user
+            - name: DB_PASSWORD
+              value: cs_sales_user
+          readinessProbe:
+            tcpSocket:
+              port: 9083
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 9083
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fulfillment-service
+  namespace: cs-sales
+  labels:
+    app: fulfillment-service
+spec:
+  selector:
+    app: fulfillment-service
+  ports:
+    - port: 9083
+      targetPort: 9083
+      name: http
+  type: ClusterIP
